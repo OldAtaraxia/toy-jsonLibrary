@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/oldataraxia/dev/json-tutorial/json-tutorial/tutorial01/leptjson.c
+leptjson.h
+/home/oldataraxia/dev/json-tutorial/json-tutorial/tutorial01/leptjson.h
+assert.h
+-
+stdlib.h
+-
+
+/home/oldataraxia/dev/json-tutorial/json-tutorial/tutorial01/leptjson.h
+
