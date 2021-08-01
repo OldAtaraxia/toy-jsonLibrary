@@ -1,6 +1,8 @@
 #include "leptjson.h"
 #include <assert.h>  /* assert() */
-#include <stdlib.h>  /* NULL */
+#include <stdlib.h>  /* NULL, strtod() */
+#include <math.h>
+#include <errno.h>
 
 #define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
 
@@ -50,6 +52,59 @@ static int lept_parse_false(lept_context* c, lept_value* v){
 
 }
 
+#define ISDIGIT(ch)         ((ch) >= '0' && (ch) <= '9')
+#define ISDIGIT1TO9(ch)     ((ch) >= '1' && (ch) <= '9')
+
+static int lept_parse_number(lept_context* c, lept_value* v){
+    char* end;
+    /* 解析数字 */
+    char* num = c->json;
+    if(*c->json == '-'){
+       c->json++;
+    }
+    if(*c->json == '0'){
+        c->json++;
+    }else if(ISDIGIT1TO9(*c->json)){
+        while(ISDIGIT(*c->json)){
+            c->json++;
+        }
+    }else{
+        return LEPT_PARSE_INVALID_VALUE;
+    }
+    if(*c->json == '.'){
+        c->json++;
+        if(!ISDIGIT(*c->json)){
+            return LEPT_PARSE_INVALID_VALUE;
+        }
+        while(ISDIGIT(*c->json)){
+            c->json++;
+        }
+    }
+    if(*c->json == 'e' || *c->json == 'E'){
+        c->json++;
+        if((*c->json) == '+' || (*c->json) == '-'){
+            c->json++;
+        }
+        if(!ISDIGIT(*c->json)){
+            return LEPT_PARSE_INVALID_VALUE;
+        }
+        while(ISDIGIT(*c->json)){
+            c->json++;
+        }
+    }
+    if(*c->json != '\0'){
+        return LEPT_PARSE_ROOT_NOT_SINGULAR;
+    }
+    v->n = strtod(num, &end);
+
+    if(v->n == HUGE_VAL || v->n == -HUGE_VAL){
+        return LEPT_PARSE_NUMBER_TOO_BIG;
+    }
+
+    v->type = LEPT_NUMBER;
+    return LEPT_PARSE_OK;
+}
+
 /*
     应该是根据*c->json的首字母决定调用什么函数吧
     把这一层放在这里封装,而非放在顶层搞一个大大的switch进行封装
@@ -60,7 +115,7 @@ static int lept_parse_value(lept_context* c, lept_value* v) {
         case 't': return lept_parse_true(c, v);
         case 'f': return lept_parse_false(c, v);
         case '\0': return LEPT_PARSE_EXPECT_VALUE;
-        default:   return LEPT_PARSE_INVALID_VALUE;
+        default:   return lept_parse_number(c, v);
     }
 }
 
@@ -82,6 +137,7 @@ int lept_parse(lept_value* v, const char* json) {
     if((res = lept_parse_value(&c, v)) == LEPT_PARSE_OK){
         lept_parse_whitespace(&c);
         if(*c.json != '\0'){
+            v->type = LEPT_NULL;
             res = LEPT_PARSE_ROOT_NOT_SINGULAR;
         }
     }
@@ -91,4 +147,9 @@ int lept_parse(lept_value* v, const char* json) {
 lept_type lept_get_type(const lept_value* v) {
     assert(v != NULL);
     return v->type;
+}
+
+double lept_get_number(const lept_value* v){
+    assert(v != NULL && v->type == LEPT_NUMBER);
+    return v->n;
 }
