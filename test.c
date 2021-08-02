@@ -25,23 +25,26 @@ static int test_pass = 0;
 #define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
 #define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%.17g")
 
-#define TEST_LITERAL(target, expect, json)\
-    do{\
-        lept_value v;\
-        v.type = target;\
-        EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, json));\
-        EXPECT_EQ_INT(expect, lept_get_type(&v));\
-    }while(0)
-
-static void test_parse_literal(){
-    /* test_parse_null */
-    TEST_LITERAL(LEPT_FALSE, LEPT_NULL, "null");
-    /* test_parse_true */
-    TEST_LITERAL(LEPT_FALSE, LEPT_TRUE, "true");
-    /* test_parse_false */
-    TEST_LITERAL(LEPT_TRUE, LEPT_FALSE, "false");
+static void test_parse_null() {
+    lept_value v;
+    v.type = LEPT_FALSE;
+    EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "null"));
+    EXPECT_EQ_INT(LEPT_NULL, lept_get_type(&v));
 }
 
+static void test_parse_true() {
+    lept_value v;
+    v.type = LEPT_FALSE;
+    EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "true"));
+    EXPECT_EQ_INT(LEPT_TRUE, lept_get_type(&v));
+}
+
+static void test_parse_false() {
+    lept_value v;
+    v.type = LEPT_TRUE;
+    EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "false"));
+    EXPECT_EQ_INT(LEPT_FALSE, lept_get_type(&v));
+}
 /* 对number的TEST多了一步 -- 检查值是否正确 */
 #define TEST_NUMBER(expect, json)\
     do {\
@@ -123,7 +126,9 @@ static void test_parse_number_too_big() {
 
 
 static void test_parse() {
-    test_parse_literal();
+    test_parse_null();
+    test_parse_true();
+    test_parse_false();
     test_parse_number();
     test_parse_expect_value();
     test_parse_invalid_value();
