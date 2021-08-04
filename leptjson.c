@@ -98,11 +98,8 @@ static int lept_parse_number(lept_context* c, lept_value* v){
     return LEPT_PARSE_OK;
 }
 
-char escapeSuffix[8] = {'\"', '\\', '/', 'b', 'f', 'n', 'r', 't'};
-char escape[8] = {'\"', '\\', '/', '\b', '\f', '\n', '\r', '\t'};
-
 static int lept_parse_string(lept_context* c, lept_value* v){
-    size_t head = c->top, len, i;
+    size_t head = c->top, len;
     int flag = 0;
     const char* p;
     EXPECT(c, '\"'); /* 在这里c->json++了 */
@@ -119,18 +116,20 @@ static int lept_parse_string(lept_context* c, lept_value* v){
                 c->top = head;
                 return LEPT_PARSE_MISS_QUOTATION_MARK;
             case '\\':
-                flag = 0;
-                for(i = 0; i < 8; i++){
-                    if(escapeSuffix[i] == *p){
-                        PUTC(c, escape[i]);
-                        p++;
-                        flag = 1;
-                        break;
-                    }
+                switch(*p++){
+                    case '\"': PUTC(c, '\"'); break;
+                    case '\\': PUTC(c, '\\'); break;
+                    case '/':  PUTC(c, '/' ); break;
+                    case 'b':  PUTC(c, '\b'); break;
+                    case 'f':  PUTC(c, '\f'); break;
+                    case 'n':  PUTC(c, '\n'); break;
+                    case 'r':  PUTC(c, '\r'); break;
+                    case 't':  PUTC(c, '\t'); break;
+                    default:
+                        c->top = head;
+                        return LEPT_PARSE_INVALID_STRING_ESCAPE;
                 }
-                if(flag) break;
-                c->top = head;
-                return LEPT_PARSE_INVALID_STRING_ESCAPE;
+                break;
             default: 
                 if ((unsigned char)ch < 0x20) { 
                     c->top = head;
@@ -200,14 +199,12 @@ void lept_free(lept_value* v){
 
 int lept_get_boolean(const lept_value* v){
     assert(v != NULL && (v->type == LEPT_TRUE || v->type == LEPT_FALSE));
-    return v->type == LEPT_TRUE ? 1 : 0;
+    return v->type == LEPT_TRUE;
 }
 
 void lept_set_boolean(lept_value* v, int b){
-    assert(v != NULL);
-    lept_set_null(v);
-    if(b == 1) v->type = LEPT_TRUE;
-    else v->type = LEPT_FALSE;
+    lept_free(v);
+    v->type = b ? LEPT_TRUE : LEPT_FALSE;
 }
 
 double lept_get_number(const lept_value* v){
@@ -216,8 +213,7 @@ double lept_get_number(const lept_value* v){
 }
 
 void lept_set_number(lept_value* v, double n){
-    assert(v != NULL);
-    lept_set_null(v);
+    lept_free(v);
     v->u.n = n;
     v->type = LEPT_NUMBER;
 }
