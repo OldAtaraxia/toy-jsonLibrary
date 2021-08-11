@@ -212,6 +212,7 @@ static int lept_parse_array(lept_context* c, lept_value* v){
         lept_value e;
         lept_init(&e);
         if((ret = lept_parse_value(c, &e)) != LEPT_PARSE_OK){
+            lept_context_pop(c, size*sizeof(lept_value));
             return ret;
         }
         memcpy(lept_context_push(c, sizeof(lept_value)), &e, sizeof(lept_value));
