@@ -316,7 +316,7 @@ static int lept_parse_object(lept_context* c, lept_value* v){
 }
 
 /*
-    应该是根据*c->json的首字母决定调用什么函数吧
+    应该是根据*c->json的首字母决定调用什么函数
     把这一层放在这里封装,而非放在顶层搞一个大大的switch进行封装
 */
 static int lept_parse_value(lept_context* c, lept_value* v) {
@@ -359,6 +359,88 @@ int lept_parse(lept_value* v, const char* json) {
     assert(c.top == 0);
     free(c.stack);
     return res;
+}
+
+#define PUTS(c, s, len)     memcpy(lept_context_push(c, len), s, len)
+
+static void lept_stringify_string(lept_context* c, const char* s, size_t len){
+    static const char hex_digits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D'};
+    size_t i, size;
+    char* head, *p;
+    assert(s != NULL);
+    p = head = lept_context_push(c, size = len * 6 + 2);
+    *p++ = '\"';
+    for(i = 0; i < len; i++){
+        unsigned char ch = s[i];
+        switch(ch){
+            case '\"': *p++ = '\\'; *p++ = '\"'; break;
+            case '\\': *p++ = '\\'; *p++ = '\\'; break;
+            case '\b': *p++ = '\\'; *p++ = 'b';  break;
+            case '\f': *p++ = '\\'; *p++ = 'f';  break;
+            case '\n': *p++ = '\\'; *p++ = 'n';  break;
+            case '\r': *p++ = '\\'; *p++ = 'r';  break;
+            case '\t': *p++ = '\\'; *p++ = 't';  break;
+            default:
+                if(ch < 0x20){
+                    *p++ = '\\'; *p++ = 'u'; *p++ = '0'; *p++ = '0';
+                    *p++ = hex_digits[ch >> 4];
+                    *p++ = hex_digits[ch & 15];
+                }else{
+                    *p++ = s[i];
+                }
+        }
+    }
+    *p++ = '\"';
+    c->top -= size - (p - head);
+}
+
+static void lept_stringify_value(lept_context* c, const lept_value* v){
+    size_t i;
+    switch(v->type){
+        case LEPT_NULL: PUTS(c, "null", 4); break;
+        case LEPT_FALSE: PUTS(c, "false", 5); break;
+        case LEPT_TRUE: PUTS(c, "true", 4); break;
+        case LEPT_NUMBER: c->top -= 32 - sprintf(lept_context_push(c, 32), "%.17g", v->u.n); break;
+        /* number时默认栈顶后移32字节, 把sprintf的结果写进stack,之后根据结果调整栈顶位置 */
+        case LEPT_STRING: lept_stringify_string(c, v->u.s.s, v->u.s.len); break;
+        case LEPT_ARRAY:
+            PUTC(c, '[');
+            for(i = 0; i < v->u.a.size; i++){
+                lept_value tmp = v->u.a.e[i];
+                lept_stringify_value(c, &tmp);
+                if(i != v->u.a.size - 1) PUTC(c, ',');
+            }
+            PUTC(c, ']');
+            break;
+        case LEPT_OBJECT:
+            PUTC(c, '{');
+            for(i = 0; i < v->u.a.size; i++){
+                lept_member tmp = v->u.o.m[i];
+                lept_stringify_string(c, tmp.k, tmp.klen);
+                PUTC(c, ':');
+                lept_stringify_value(c, &tmp.v);
+                if(i != v->u.a.size - 1) PUTC(c, ',');
+            }
+            PUTC(c, '}');
+            break;
+        default: assert(0 && "invalid type");
+    }
+}
+
+#ifndef LEPT_PARSE_STRINGIFY_INIT_SIZE
+#define LEPT_PARSE_STRINGIFY_INIT_SIZE 256
+#endif
+
+char* lept_stringify(const lept_value* v, size_t* length){
+    lept_context c;
+    assert(v != NULL);
+    c.stack = (char*) malloc(c.size = LEPT_PARSE_STRINGIFY_INIT_SIZE);
+    /* free交给调用者 */
+    c.top = 0;
+    lept_stringify_value(&c, v); /* 把对应字符串写进stack */
+    if(length) *length = c.top;
+    PUTC(&c, '\0'); /* 加\0标志字符串结束 */
+    return c.stack;
 }
 
 lept_type lept_get_type(const lept_value* v) {
