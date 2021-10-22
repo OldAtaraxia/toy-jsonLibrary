@@ -1,6 +1,6 @@
 # toy-jsonLibrary
 json library based on Milo Yip's tutorial
-### usage
+### develop
 ```
 mkdir build
 cd build
